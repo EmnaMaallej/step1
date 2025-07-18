@@ -1,6 +1,6 @@
-# Copyright (C) 2015-2023 Bayerische Motoren Werke Aktiengesellschaft (BMW AG) This Source Code Form is subject to the
-# terms of the Mozilla Public License, v. 2.0. If a copy of the MPL was not distributed with this file, You can obtain
-# one at http://mozilla.org/MPL/2.0/.
+# Copyright (C) 2015-2023 Bayerische Motoren Werke Aktiengesellschaft (BMW AG)
+# This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+# If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 cmake_minimum_required(VERSION 3.13)
 
@@ -9,8 +9,7 @@ if(POLICY CMP0177)
   cmake_policy(SET CMP0177 OLD)
 endif()
 if(POLICY CMP0167)
-  # Use CMake's FindBoost module, see comment below.  Needed until minimum
-  # boost version is >=1.70
+  # Use CMake's FindBoost module, see comment below. Needed until minimum boost version is >=1.70
   cmake_policy(SET CMP0167 NEW)
 endif()
 if(POLICY CMP0144)
@@ -85,12 +84,11 @@ foreach(
 )
   set(var INSTALL_${p}_DIR)
   if(NOT IS_ABSOLUTE "${${var}}")
-    set(ABSOLUTE_${var} "${CMAKE_INSTALL_PREFIX}/${${var}}") # Add all targets to the build-tree export set
+    set(ABSOLUTE_${var} "${CMAKE_INSTALL_PREFIX}/${${var}}")
   endif()
 endforeach()
 
 # Set a default build type if none was specified
-# This is a CMake anti-pattern.
 set(default_build_type "RelWithDebInfo")
 if(NOT CMAKE_BUILD_TYPE)
   message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
@@ -98,7 +96,6 @@ if(NOT CMAKE_BUILD_TYPE)
       "${default_build_type}"
       CACHE STRING "Choose the type of build." FORCE
   )
-  # Set the possible values of build type for cmake-gui
   set_property(
     CACHE CMAKE_BUILD_TYPE
     PROPERTY STRINGS
@@ -118,8 +115,7 @@ find_package(Threads REQUIRED)
 add_library(OS_INTERFACE INTERFACE IMPORTED)
 add_library(DL_INTERFACE INTERFACE IMPORTED)
 
-# Boost: once this is pushed passed 1.70, it should be found using CONFIG rather
-# than CMake's FindBoost module, see policy CMP0167
+# Boost
 find_package(
   Boost 1.66 REQUIRED
   COMPONENTS system thread filesystem
@@ -138,9 +134,7 @@ if(ENABLE_WERROR)
   add_compile_options(-Werror)
 endif()
 
-# Variable to store compiler options used to export settings.  These are stored
-# in a variable such that they can be easily removed in test apps (see
-# test/CMakeLists.txt)
+# Compiler options
 set(EXPORTSYMBOLS)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -168,38 +162,28 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     -Wno-inconsistent-missing-override
   )
 
-  # Check if optimization level is set in CMAKE_CXX_FLAGS_RELWITHDEBINFO
   string(REGEX MATCH "-O([0-3s]?)" OPTIMIZATION_SET "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
-
   if(NOT OPTIMIZATION_SET)
-      message(WARNING "No optimization level set in CMAKE_CXX_FLAGS_RELWITHDEBINFO, adding -O")
-      set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O")
+    message(WARNING "No optimization level set in CMAKE_CXX_FLAGS_RELWITHDEBINFO, adding -O")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O")
   endif()
 
   target_link_libraries(OS_INTERFACE INTERFACE Threads::Threads)
 
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    # This is only relevant for GCC and causes warnings on Clang
-
     set(EXPORTSYMBOLS
       -Wl,-export-dynamic
       -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/exportmap.gcc
     )
-
     target_link_options(
       OS_INTERFACE
       INTERFACE
       -Wl,-z,relro,-z,now
       ${EXPORTSYMBOLS}
     )
-
-    # There appear to be complication issues without this flag
     target_link_options(OS_INTERFACE INTERFACE -Wno-tsan)
   endif()
   target_link_options(OS_INTERFACE INTERFACE -Wl,--wrap=socket,--wrap=accept,--wrap=open)
-
-  # force all use of std::mutex and std::recursive_mutex to use runtime init instead of static initialization so mutexes
-  # can be hooked to enable PI as needed
   add_definitions(-D_GTHREAD_USE_MUTEX_INIT_FUNC -D_GTHREAD_USE_RECURSIVE_MUTEX_INIT_FUNC)
 
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
@@ -220,25 +204,19 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
   )
   target_link_options(OS_INTERFACE INTERFACE -Wl,-export-dynamic)
   target_link_options(OS_INTERFACE INTERFACE -Wl,--wrap=socket,--wrap=accept,--wrap=open)
-
   target_link_libraries(OS_INTERFACE INTERFACE slog2)
-
-  # QNX specific socket lib
   set(VSOMEIP_SOCKET_LIB
       "socket"
       CACHE STRING "Default socket library for QNX"
   )
   target_link_libraries(OS_INTERFACE INTERFACE $<$<PLATFORM_ID:QNX>:${VSOMEIP_SOCKET_LIB}>)
-
 endif()
 
 if(${OS})
   add_definitions(-D${OS})
 endif()
 
-#
 # Options
-
 find_package(PkgConfig)
 
 # DLT
@@ -254,7 +232,7 @@ else()
 endif()
 
 # Signal handling
-option(ENABLE_SIGNAL_HANDLING "Enable signal handling (SIGTERM, SIGINT, etc) in applicaiton_impl" OFF)
+option(ENABLE_SIGNAL_HANDLING "Enable signal handling (SIGTERM, SIGINT, etc) in application_impl" OFF)
 if(ENABLE_SIGNAL_HANDLING)
   add_definitions(-DVSOMEIP_ENABLE_SIGNAL_HANDLING)
 endif()
@@ -262,29 +240,24 @@ endif()
 # Event caching
 option(ENABLE_DEFAULT_EVENT_CACHING "Enable default event caching")
 
+# Sanitizers and profiling (non-MSVC)
 if(NOT MSVC)
-  # Sanitizers
-
   if(ENABLE_UNDEFINED_SANITIZER)
     add_compile_options(-fsanitize=undefined)
     add_link_options(-fsanitize=undefined)
   endif()
-
   if(ENABLE_THREAD_SANITIZER)
     add_compile_options(-fsanitize=thread)
     add_link_options(-fsanitize=thread)
   endif()
-
   if(ENABLE_LEAK_SANITIZER)
     add_compile_options(-fsanitize=leak)
     add_link_options(-fsanitize=leak)
   endif()
-
   if(ENABLE_ADDRESS_SANITIZER)
     add_compile_options(-fsanitize=address)
     add_link_options(-fsanitize=address)
   endif()
-
   if(ENABLE_PROFILING)
     add_compile_options(-pg)
   endif()
@@ -292,21 +265,14 @@ if(NOT MSVC)
   # Valgrind
   find_program(VALGRIND "valgrind")
   if(VALGRIND)
-    if(DEFINED VALGRIND_TYPE
-       AND NOT
-           VALGRIND_TYPE
-           STREQUAL
-           ""
-    )
+    if(DEFINED VALGRIND_TYPE AND NOT VALGRIND_TYPE STREQUAL "")
       set(TEST_ENTRYPOINT ${VALGRIND} --tool=${VALGRIND_TYPE} --trace-children=yes)
       add_definitions(-DBOOST_USE_VALGRIND)
     endif()
-
-      if(VALGRIND_TYPE STREQUAL "massif")
-        set(TEST_ENTRYPOINT ${TEST_ENTRYPOINT} --massif-out-file=${VALGRIND_LOGS_DIR}/test_name.out)
-     endif()
-
-     if(VALGRIND_TYPE STREQUAL "memcheck")
+    if(VALGRIND_TYPE STREQUAL "massif")
+      set(TEST_ENTRYPOINT ${TEST_ENTRYPOINT} --massif-out-file=${VALGRIND_LOGS_DIR}/test_name.out)
+    endif()
+    if(VALGRIND_TYPE STREQUAL "memcheck")
       set(TEST_ENTRYPOINT
           ${TEST_ENTRYPOINT}
           --leak-check=yes
@@ -329,26 +295,20 @@ if(DISABLE_SECURITY)
   add_definitions(-DVSOMEIP_DISABLE_SECURITY)
 endif()
 
-# Suppress deprecation warnings for vSomeIP interfaces
+# Suppress deprecation warnings
 add_definitions(-DVSOMEIP_INTERNAL_SUPPRESS_DEPRECATED)
 
-#
 # Dependencies
-
-# cmake 3.15 introduced a new variable and a new format for the old one
 if(DEFINED Boost_VERSION_MACRO)
   set(VSOMEIP_BOOST_VERSION ${Boost_VERSION_MACRO})
 else()
   set(VSOMEIP_BOOST_VERSION ${Boost_VERSION})
 endif()
-
 message(STATUS "Using boost version: ${VSOMEIP_BOOST_VERSION}")
-
 add_definitions(-DVSOMEIP_BOOST_VERSION=${VSOMEIP_BOOST_VERSION})
 
 # SystemD
 pkg_check_modules(SystemD "libsystemd")
-
 if(NOT SystemD_FOUND OR ${CMAKE_SYSTEM_NAME} MATCHES "Android")
   message(STATUS "Systemd was not found, watchdog disabled!")
   add_definitions(-DWITHOUT_SYSTEMD)
@@ -356,20 +316,13 @@ else()
   target_link_libraries(OS_INTERFACE INTERFACE ${SystemD_LIBRARIES})
 endif()
 
-#
-# Directories
-
+# MSVC-specific settings
 if(MSVC)
   message("using MSVC Compiler")
-  # add_definitions(-DVSOMEIP_DLL_COMPILATION) now it is controlled per target
   set(BOOST_WINDOWS_VERSION
       "0x600"
-      CACHE
-        STRING
-        "Set the same Version as the Version with which Boost was built, otherwise there will be errors. (normaly 0x600 is for Windows 7 and 0x501 is for Windows XP)"
+      CACHE STRING "Set the same Version as the Version with which Boost was built"
   )
-  # Disable warning C4250 since it warns that the compiler is correctly following the C++ Standard. It's a
-  # "We-Are-Doing-Things-By-The-Book" notice, not a real warning.
   add_compile_options(/EHsc /wd4250)
   add_definitions(
     -D_CRT_SECURE_NO_WARNINGS
@@ -383,9 +336,7 @@ if(MSVC)
   add_compile_options(/MD$<$<CONFIG:Debug>:d>)
 endif()
 
-#
 # Configuration library
-
 file(GLOB vsomeip_cfg_SRC "implementation/configuration/src/*.cpp")
 list(SORT vsomeip_cfg_SRC)
 if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
@@ -400,7 +351,6 @@ if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
   )
   target_compile_features(${VSOMEIP_NAME}-cfg PRIVATE cxx_std_17)
   target_compile_definitions(${VSOMEIP_NAME}-cfg PUBLIC $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION_PLUGIN>)
-
   target_link_libraries(
     ${VSOMEIP_NAME}-cfg
     PRIVATE ${VSOMEIP_NAME}
@@ -410,17 +360,11 @@ if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
             OS_INTERFACE
   )
 else()
-  # We don't want this target to only conditionally exist.
   add_library(${VSOMEIP_NAME}-cfg INTERFACE)
-  message(STATUS "Multiple routing managers enabled, \"disabling\" the
-  configuration library.  Note that the unittests depend on this library so you
-  won't likely be able to use the tests in this mode"
-  )
+  message(STATUS "Multiple routing managers enabled, \"disabling\" the configuration library.")
 endif()
 
-#
 # Base library
-
 file(
   GLOB
   ${VSOMEIP_NAME}_SRC
@@ -480,10 +424,6 @@ set_target_properties(
   OUTPUT_NAME ${VSOMEIP_NAME}
   EXPORT_NAME ${VSOMEIP_NAME}
 )
-
-# PRIVATE means the listed libraries won't be included in the "link interface", meaning the exported
-# ${VSOMEIP_NAME}Targets.cmake targets won't try to link against them (which shouldn't be required). Boost library
-# includes absolute build host paths as of writing, which also makes this important as it breaks the build.
 target_link_libraries(
   ${VSOMEIP_NAME}
   PRIVATE Boost::filesystem
@@ -493,17 +433,13 @@ target_link_libraries(
           OS_INTERFACE
           Threads::Threads
 )
-
 if(NOT WIN32)
   target_link_options(${VSOMEIP_NAME} PRIVATE "LINKER:-as-needed")
 endif()
 
-#
 # Service Discovery library
-
 file(GLOB vsomeip_sd_SRC "implementation/service_discovery/src/*.cpp")
 list(SORT vsomeip_sd_SRC)
-
 add_library(${VSOMEIP_NAME}-sd SHARED)
 target_compile_features(${VSOMEIP_NAME}-sd PRIVATE cxx_std_17)
 target_sources(${VSOMEIP_NAME}-sd PRIVATE ${vsomeip_sd_SRC})
@@ -523,11 +459,9 @@ target_link_libraries(
           Threads::Threads
 )
 
-#
 # E2E library
 file(GLOB_RECURSE vsomeip_e2e_SRC "implementation/e2e_protection/src/*.cpp")
 list(SORT vsomeip_e2e_SRC)
-
 add_library(${VSOMEIP_NAME}-e2e SHARED)
 target_sources(${VSOMEIP_NAME}-e2e PRIVATE ${vsomeip_e2e_SRC})
 set_target_properties(
@@ -544,15 +478,11 @@ target_link_libraries(
   PRIVATE DL_INTERFACE OS_INTERFACE
 )
 
-#
 # Compatibility library
-
 if(ENABLE_COMPAT)
   set(VSOMEIP_COMPAT_MAJOR_VERSION 2)
   set(VSOMEIP_COMPAT_VERSION ${VSOMEIP_COMPAT_MAJOR_VERSION}.99.99)
-
   add_definitions(-DVSOMEIP_ENABLE_COMPAT)
-
   file(
     GLOB_RECURSE
     ${VSOMEIP_COMPAT_NAME}_SRC
@@ -561,9 +491,8 @@ if(ENABLE_COMPAT)
     "implementation/compat/runtime/src/*.cpp"
   )
   list(SORT ${VSOMEIP_COMPAT_NAME}_SRC)
-
-  add_library(${VSOMEIP_COMPAT_NAME})
-  target_sources(${VSOMEIP_COMPAT_NAME} SHARED ${${VSOMEIP_COMPAT_NAME}_SRC})
+  add_library(${VSOMEIP_COMPAT_NAME} SHARED)
+  target_sources(${VSOMEIP_COMPAT_NAME} PRIVATE ${${VSOMEIP_COMPAT_NAME}_SRC})
   target_compile_features(${VSOMEIP_COMPAT_NAME} PRIVATE cxx_std_17)
   target_compile_definitions(${VSOMEIP_COMPAT_NAME} PUBLIC $<$<CXX_COMPILER_ID:MSVC>:VSOMEIP_DLL_COMPILATION_PLUGIN>)
   set_target_properties(
@@ -575,13 +504,12 @@ if(ENABLE_COMPAT)
   )
   target_include_directories(
     ${VSOMEIP_COMPAT_NAME}
-    PUBLIC # Access to vsomeip3 includes
-           $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/interface> # Access to vsomeip3 includes
+    PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/interface>
            $<INSTALL_INTERFACE:include>
            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/interface/compat>
-           $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}> # for generated files in build mode
+           $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>
            $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/implementation/configuration/include>
-           $<INSTALL_INTERFACE:include/compat> # for clients in install mode
+           $<INSTALL_INTERFACE:include/compat>
   )
   target_link_libraries(
     ${VSOMEIP_COMPAT_NAME}
@@ -591,12 +519,18 @@ if(ENABLE_COMPAT)
             DL_INTERFACE
             OS_INTERFACE
   )
-
 endif()
 
-#
-# Configuration files
+# Client and Server executables
+add_executable(client src/client/client.cpp)
+target_compile_features(client PRIVATE cxx_std_17)
+target_link_libraries(client PRIVATE ${VSOMEIP_NAME} Boost::system Boost::thread OS_INTERFACE DL_INTERFACE Threads::Threads)
 
+add_executable(server src/server/server.cpp)
+target_compile_features(server PRIVATE cxx_std_17)
+target_link_libraries(server PRIVATE ${VSOMEIP_NAME} Boost::system Boost::thread OS_INTERFACE DL_INTERFACE Threads::Threads)
+
+# Configuration files
 set(EXAMPLE_CONFIG_FILES
     "config/vsomeip.json"
     "config/vsomeip-local.json"
@@ -606,9 +540,7 @@ set(EXAMPLE_CONFIG_FILES
     "config/vsomeip-udp-service.json"
 )
 
-#
 # Configuration parameters
-
 if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
   set(VSOMEIP_BASE_PATH_DEFAULT "/var")
 else()
@@ -618,27 +550,22 @@ set(VSOMEIP_BASE_PATH
     ${VSOMEIP_BASE_PATH_DEFAULT}
     CACHE PATH "Base path for vsomeip sockets"
 )
-
 set(VSOMEIP_DIAGNOSIS_ADDRESS "0x01")
 if(DIAGNOSIS_ADDRESS)
   set(VSOMEIP_DIAGNOSIS_ADDRESS ${DIAGNOSIS_ADDRESS})
 endif()
-
 set(VSOMEIP_UNICAST_ADDRESS "127.0.0.1")
 if(UNICAST_ADDRESS)
   set(VSOMEIP_UNICAST_ADDRESS ${UNICAST_ADDRESS})
 endif()
-
 set(VSOMEIP_ROUTING_READY_MESSAGE "SOME/IP routing ready.")
 if(ROUTING_READY_MESSAGE)
   set(VSOMEIP_ROUTING_READY_MESSAGE ${ROUTING_READY_MESSAGE})
 endif()
-
 set(VSOMEIP_LOCAL_TCP_PORT_WAIT_TIME 100)
 if(LOCAL_TCP_PORT_WAIT_TIME)
   set(VSOMEIP_LOCAL_TCP_PORT_WAIT_TIME ${LOCAL_TCP_PORT_WAIT_TIME})
 endif()
-
 set(VSOMEIP_LOCAL_TCP_PORT_MAX_WAIT_TIME 10000)
 if(LOCAL_TCP_PORT_MAX_WAIT_TIME)
   if(${LOCAL_TCP_PORT_MAX_WAIT_TIME} GREATER ${LOCAL_TCP_PORT_WAIT_TIME})
@@ -647,32 +574,23 @@ if(LOCAL_TCP_PORT_MAX_WAIT_TIME)
     set(VSOMEIP_LOCAL_TCP_PORT_MAX_WAIT_TIME ${LOCAL_TCP_PORT_WAIT_TIME})
   endif()
 endif()
-
 set(DEFAULT_CONFIGURATION_FOLDER
     "/etc/vsomeip"
     CACHE PATH "Default configuration folder"
 )
-message(STATUS "Default configuration folder: ${DEFAULT_CONFIGURATION_FOLDER}")
-
 set(DEFAULT_CONFIGURATION_FILE
     "/etc/vsomeip.json"
     CACHE FILEPATH "Default configuration file"
 )
+message(STATUS "Default configuration folder: ${DEFAULT_CONFIGURATION_FOLDER}")
 message(STATUS "Default configuration file: ${DEFAULT_CONFIGURATION_FILE}")
-
 message("Predefined base path: ${VSOMEIP_BASE_PATH}")
 message("Predefined unicast address: ${VSOMEIP_UNICAST_ADDRESS}")
 message("Predefined diagnosis address: ${VSOMEIP_DIAGNOSIS_ADDRESS}")
-message("Predefined wait times for internal communication ports (TCP):\
- ${VSOMEIP_LOCAL_TCP_PORT_WAIT_TIME}\
- (max=${VSOMEIP_LOCAL_TCP_PORT_MAX_WAIT_TIME})"
-)
+message("Predefined wait times for internal communication ports (TCP): ${VSOMEIP_LOCAL_TCP_PORT_WAIT_TIME} (max=${VSOMEIP_LOCAL_TCP_PORT_MAX_WAIT_TIME})")
 
-#
 # Installation
-
 set(INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/interface/vsomeip")
-
 file(
   GLOB_RECURSE
   vsomeip_INCLUDE
@@ -681,105 +599,82 @@ file(
   "interface/*.h*"
 )
 list(SORT vsomeip_INCLUDE)
-
 foreach(file ${vsomeip_INCLUDE})
   get_filename_component(dir ${file} DIRECTORY)
-  # The destination contains non-normalized paths, this is deprecated.  Until
-  # CMake 3.23 is the minimum version and FILE_SETs can be used, we're relying
-  # on using the old CMP0177 policy.
   install(
     FILES "${INCLUDE_PATH}/${file}"
           DESTINATION "${INSTALL_INCLUDE_DIR}/vsomeip/${dir}"
           COMPONENT dev
   )
 endforeach()
-
 unset(INCLUDE_PATH)
 unset(vsomeip_INCLUDE)
 unset(file)
 
 install(
   TARGETS ${VSOMEIP_NAME}
-          # IMPORTANT: Add the vsomeip library to the "export-set"
           EXPORT ${VSOMEIP_NAME}Targets
-          RUNTIME
-          DESTINATION "${INSTALL_BIN_DIR}"
+          RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
           COMPONENT bin
-          LIBRARY
-          DESTINATION "${INSTALL_LIB_DIR}"
+          LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
           COMPONENT shlib
-          ARCHIVE
-          DESTINATION "${INSTALL_LIB_DIR}"
+          ARCHIVE DESTINATION "${INSTALL_LIB_DIR}"
           COMPONENT dev
 )
-
 install(
-  TARGETS ${VSOMEIP_NAME}-e2e LIBRARY
-          DESTINATION "${INSTALL_LIB_DIR}"
+  TARGETS ${VSOMEIP_NAME}-e2e
+          LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
           COMPONENT shlib
-          RUNTIME
-          DESTINATION "${INSTALL_BIN_DIR}"
+          RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
           COMPONENT bin
 )
-
 if(NOT ENABLE_MULTIPLE_ROUTING_MANAGERS)
   install(
-    TARGETS ${VSOMEIP_NAME}-cfg LIBRARY
-            DESTINATION "${INSTALL_LIB_DIR}"
+    TARGETS ${VSOMEIP_NAME}-cfg
+            LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
             COMPONENT shlib
-            RUNTIME
-            DESTINATION "${INSTALL_BIN_DIR}"
+            RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
             COMPONENT bin
   )
 endif()
-
 install(
-  TARGETS ${VSOMEIP_NAME}-sd LIBRARY
-          DESTINATION "${INSTALL_LIB_DIR}"
+  TARGETS ${VSOMEIP_NAME}-sd
+          LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
           COMPONENT shlib
-          RUNTIME
-          DESTINATION "${INSTALL_BIN_DIR}"
+          RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
           COMPONENT bin
 )
-
+install(
+  TARGETS client server
+          RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
+          COMPONENT bin
+)
 if(ENABLE_COMPAT)
   install(
     TARGETS ${VSOMEIP_COMPAT_NAME}
             EXPORT vsomeipTargets
-            LIBRARY
-            DESTINATION "${INSTALL_LIB_DIR}"
+            LIBRARY DESTINATION "${INSTALL_LIB_DIR}"
             COMPONENT shlib
-            RUNTIME
-            DESTINATION "${INSTALL_BIN_DIR}"
+            RUNTIME DESTINATION "${INSTALL_BIN_DIR}"
             COMPONENT bin
   )
-
   export(TARGETS ${VSOMEIP_COMPAT_NAME} FILE "${PROJECT_BINARY_DIR}/vsomeipTargets.cmake")
   export(PACKAGE ${VSOMEIP_COMPAT_NAME})
-
   configure_file(vsomeipConfig.cmake.in "${PROJECT_BINARY_DIR}/vsomeipConfig.cmake" @ONLY)
   configure_file(vsomeipConfigVersion.cmake.in "${PROJECT_BINARY_DIR}/vsomeipConfigVersion.cmake" @ONLY)
-
   set(COMPAT_INSTALL_CMAKE_DIR "${DEF_INSTALL_CMAKE_DIR}-compat")
-
   install(
-    EXPORT
-    vsomeipTargets
-    DESTINATION
-    "${COMPAT_INSTALL_CMAKE_DIR}"
-    COMPONENT
-    dev
+    EXPORT vsomeipTargets
+    DESTINATION "${COMPAT_INSTALL_CMAKE_DIR}"
+    COMPONENT dev
   )
-
   install(
     FILES "${PROJECT_BINARY_DIR}/vsomeipConfig.cmake" "${PROJECT_BINARY_DIR}/vsomeipConfigVersion.cmake"
           DESTINATION "${COMPAT_INSTALL_CMAKE_DIR}"
           COMPONENT dev
   )
-
   configure_file(vsomeip.pc.in ${PROJECT_BINARY_DIR}/vsomeip.pc @ONLY)
   install(FILES ${PROJECT_BINARY_DIR}/vsomeip.pc DESTINATION lib/pkgconfig)
-
 endif()
 
 install(
@@ -788,49 +683,31 @@ install(
         COMPONENT config
 )
 
-# Add all targets to the build-tree export set
 export(TARGETS ${VSOMEIP_NAME} FILE "${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}Targets.cmake")
-
-# Export the package for use from the build-tree (this registers the build-tree with a global CMake-registry)
 export(PACKAGE ${VSOMEIP_NAME})
-
-# Create the ${VSOMEIP_NAME}Config.cmake and ${VSOMEIP_NAME}ConfigVersion files
 configure_file(${VSOMEIP_NAME}Config.cmake.in "${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}Config.cmake" @ONLY)
 configure_file(${VSOMEIP_NAME}ConfigVersion.cmake.in "${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}ConfigVersion.cmake" @ONLY)
-
-# configure internal.hpp for correct version number
 configure_file(
   "${PROJECT_SOURCE_DIR}/implementation/configuration/include/internal.hpp.in"
   "${PROJECT_BINARY_DIR}/implementation/configuration/include/internal.hpp"
 )
-
-# Install the ${VSOMEIP_NAME}Config.cmake and ${VSOMEIP_NAME}ConfigVersion.cmake
 install(
   FILES "${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}Config.cmake" "${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}ConfigVersion.cmake"
         DESTINATION "${INSTALL_CMAKE_DIR}"
         COMPONENT dev
 )
-
-# Install the export set for use with the install-tree
 install(
-  EXPORT
-  ${VSOMEIP_NAME}Targets
-  DESTINATION
-  "${INSTALL_CMAKE_DIR}"
-  COMPONENT
-  dev
+  EXPORT ${VSOMEIP_NAME}Targets
+  DESTINATION "${INSTALL_CMAKE_DIR}"
+  COMPONENT dev
 )
 
-#
-# build documentation
-
+# Documentation
 add_custom_target(doc)
-
 find_package(Doxygen)
 if(NOT DOXYGEN_FOUND)
   message(WARNING "Doxygen is not installed. Documentation can not be built.")
 else()
-  # set configuration variables for doxygen.in
   set(PROJECT "vsomeip")
   set(DOCDIR documentation)
   set(SRCDIR .)
@@ -843,10 +720,7 @@ else()
   set(GENERATE_MAN NO)
   set(GENERATE_XML NO)
   set(HAVE_DOT YES)
-
   if(HAVE_DOT)
-    # Note: the @DOT_PATH@ variable won't be used in doxygen.in as doxygen somehow manages to strip the last slash from
-    # the path and therfore no graphs are generated. Therefore dot should be available in your $PATH
     find_program(DOT_PATH dot)
     if("${DOT_PATH}" STREQUAL "DOT_PATH-NOTFOUND")
       message(WARNING "dot (graphviz) is not installed. Graphs in documentation can't be generated.")
@@ -854,46 +728,33 @@ else()
       message("dot found")
     endif()
   endif()
-
   configure_file(documentation/doxygen.in ${PROJECT_BINARY_DIR}/Doxyfile @ONLY)
   add_custom_target(
     doxygen-doc
     COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/Doxyfile
     SOURCES ${PROJECT_BINARY_DIR}/Doxyfile
   )
-
   add_dependencies(doc doxygen-doc)
 endif()
 
-#
-# create pkg-config file
-
+# pkg-config
 if(NOT WIN32)
   configure_file(${VSOMEIP_NAME}.pc.in ${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}.pc @ONLY)
   install(FILES ${PROJECT_BINARY_DIR}/${VSOMEIP_NAME}.pc DESTINATION lib/pkgconfig)
 endif()
 
-#
-# build routing manager daemon (Non-Windows only)
-
+# Routing manager daemon and tools (Non-Windows only)
 if(NOT MSVC)
   add_subdirectory(examples/routingmanagerd)
   add_subdirectory(examples/hello_world)
+  add_custom_target(tools)
+  add_subdirectory(tools/vsomeip_ctrl)
+  add_custom_target(examples)
+  add_subdirectory(examples EXCLUDE_FROM_ALL)
 endif()
 
-# build tools
-add_custom_target(tools)
-add_subdirectory(tools/vsomeip_ctrl)
-
-# build examples
-add_custom_target(examples)
-add_subdirectory(examples EXCLUDE_FROM_ALL)
-
-# ####################################################################
-
-# add test directory
+# Testing
 enable_testing()
-
 add_subdirectory(test EXCLUDE_FROM_ALL)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
@@ -904,7 +765,6 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "QNX")
               PATTERN "*.cmake" EXCLUDE
               PATTERN "Makefile" EXCLUDE
   )
-
   install(FILES ${PROJECT_BINARY_DIR}/examples/routingmanagerd/routingmanagerd
                 DESTINATION bin/vsomeip_tests/examples/routingmanagerd
   )

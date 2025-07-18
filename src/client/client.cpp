@@ -21,7 +21,7 @@ public:
         app_->register_state_handler(
             std::bind(&Client::on_state, this, std::placeholders::_1));
         app_->register_availability_handler(SERVICE_ID, INSTANCE_ID,
-            std::bind(&Client::on_availability, this, std::placeholders::_1, std::placeholders::_2));
+            &Client::on_availability); // Correction ici
         app_->subscribe(SERVICE_ID, INSTANCE_ID, EVENT_ID);
     }
 

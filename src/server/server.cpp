@@ -14,7 +14,7 @@ public:
     }
 
     void init() {
-        app_->init();
+        app_->init(); // Appel sans vérification de retour (géré par vsomeip)
         app_->register_message_handler(SERVICE_ID, INSTANCE_ID, METHOD_ID,
             std::bind(&Server::on_request, this, std::placeholders::_1));
         app_->register_state_handler(
@@ -32,7 +32,7 @@ public:
 private:
     void on_state(vsomeip::state_type_e _state) {
         if (_state == vsomeip::state_type_e::ST_REGISTERED) {
-            app_->offer_service(SERVICE_ID, INSTANCE_ID);
+            app_->offer_service(SERVICE_ID, INSTANCE_ID); // Offre le service ici
         }
     }
 

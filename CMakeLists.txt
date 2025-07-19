@@ -135,7 +135,7 @@ target_link_libraries(
 )
 
 # E2E library (vsomeip3-e2e)
-file(GLOB_RECURSIVE vsomeip_e2e_SRC "implementation/e2e_protection/src/*.cpp")
+file(GLOB_RECURSE vsomeip_e2e_SRC "implementation/e2e_protection/src/*.cpp")
 list(SORT vsomeip_e2e_SRC)
 
 add_library(${VSOMEIP_NAME}-e2e SHARED ${vsomeip_e2e_SRC})
@@ -208,7 +208,7 @@ install(
 )
 
 # Install headers
-file(GLOB_RECURSIVE vsomeip_INCLUDE RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/interface/vsomeip" "interface/*.h*")
+file(GLOB_RECURSE vsomeip_INCLUDE RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/interface/vsomeip" "interface/*.h*")
 list(SORT vsomeip_INCLUDE)
 foreach(file ${vsomeip_INCLUDE})
   get_filename_component(dir ${file} DIRECTORY)
